@@ -158,6 +158,20 @@ public class MyBot : IChessBot
                 
             }
         }
+
+        //if either is in check
+        if (board.TrySkipTurn())
+        {
+            if (board.IsInCheck())
+            {
+                score += (board.PlyCount % 2 == 0 ? 100 : -100);
+            }
+            board.UndoSkipTurn();
+        } else
+        {
+            score -= (board.PlyCount % 2 == 0 ? 100 : -100);
+        }
+
         //board control
         score += SquaresAttacking(board, pieceLists, true);
         score -= SquaresAttacking(board, pieceLists, false);
