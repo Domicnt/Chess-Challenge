@@ -3,10 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-/*
-Has issues with getting checkmates in late game
-*/
-
 public class MyBot : IChessBot
 {
     private static int Value(PieceType piece)
@@ -23,7 +19,7 @@ public class MyBot : IChessBot
             case PieceType.Queen:
                 return 900;
             case PieceType.King: 
-                return 9999;
+                return 1000;
             default: 
                 return 0;
         }
@@ -128,37 +124,41 @@ public class MyBot : IChessBot
                 }
                 if (skip) board.UndoSkipTurn();
 
-                int worth = (pieceWhite ? 1 : -1) * Value(pieceList.TypeOfPieceInList);
-                if (!covered && attackers > 0)
+                int worth = Value(pieceList.TypeOfPieceInList);
+                int signedWorth = (pieceWhite ? 1 : -1) * worth;
+                if (!covered && ((attackers > 0 && attackerSafe) || attackers > 1))
                 {
-                    if ((board.PlyCount % 2 == 0) == pieceWhite) //if it is the turn of the owner of the current piece
+                    if ((board.PlyCount % 2 == 0) == pieceWhite) //if it will be the turn of the owner of the current piece
                     {
-                        if (Math.Abs(worth) > highestValue)
+                        if (worth > highestValue)
                         {
                             score -= ((pieceWhite ? 1 : -1) * highestValue * 3) / 4;
-                            highestValue = Math.Abs(worth);
+                            highestValue = worth;
                         } else
                         {
-                            score -= (worth * 3) / 4;
+                            score -= (signedWorth * 3) / 4;
                         }
                     } else
                     {
-                        score -= (worth * 3) / 4;
+                        score -= (signedWorth * 3) / 4;
                     }
-                } else if (covered && attackers > 0)
+                } else if (attackers == 1 && !attackerSafe)
                 {
-                    if (lowestValueAttacker < Math.Abs(worth))
+                    
+                } else if (covered && attackers > 0 && (board.PlyCount % 2 == 0) != pieceWhite)
+                {
+                    if (lowestValueAttacker < worth)
                     {
-                        score -= worth - ((pieceWhite ? 1 : -1) * lowestValueAttacker);
+                        score -= ((signedWorth - (pieceWhite ? 1 : -1) * lowestValueAttacker) * 3) / 4;
                     } else
                     {
-                        score -= (worth * attackers) / 10;
+                        score -= (signedWorth * attackers) / 25;
                     }
                 }
                 
             }
         }
-
+        /*
         //if either is in check
         if (board.TrySkipTurn())
         {
@@ -170,7 +170,7 @@ public class MyBot : IChessBot
         } else
         {
             score -= (board.PlyCount % 2 == 0 ? 100 : -100);
-        }
+        }*/
 
         //board control
         score += SquaresAttacking(board, pieceLists, true);
@@ -206,19 +206,18 @@ public class MyBot : IChessBot
         //the lower this value is, the better that the score function is expected/needs to be
         int pruneThreshold = 150;
         
-        for (int i = 0; i < Math.Min(scores.Length, 5) && scores[i].Item1 > scores[0].Item1 - pruneThreshold; i++)
+        for (int i = 0; i < Math.Min(scores.Length, 6) && scores[i].Item1 > scores[0].Item1 - pruneThreshold; i++)
         {
             Move move = scores[i].Item2;
             board.MakeMove(move);
 
             //if draw or checkmate
-            if (board.GetLegalMoves().Length < 1)
+            if (board.IsDraw())
             {
-                if (board.IsDraw())
-                {
-                    board.UndoMove(move);
-                    continue;
-                }
+                board.UndoMove(move);
+                continue;
+            } else if (board.IsInCheckmate())
+            {
                 board.UndoMove(move);
                 return (999999, move);
             }
